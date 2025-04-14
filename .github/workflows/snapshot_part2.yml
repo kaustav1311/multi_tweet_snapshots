@@ -2,7 +2,7 @@ name: Tweet Snapshot Part 1
 
 on:
   schedule:
-    - cron: '15 22 * * *'  # 22:15 UTC
+    - cron: '20 22 * * *'  # 22:15 UTC
   workflow_dispatch:
 
 jobs:
