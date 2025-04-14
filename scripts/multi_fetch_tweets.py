@@ -1,7 +1,10 @@
+
+
+
 import os, requests, json
 from datetime import datetime
 
-# List of all 9 accounts (add more later)
+# List of all accounts (ordered so each 3 go to one token)
 ACCOUNTS = [
     "Nillioneco",
     "buildonnillion",
@@ -14,13 +17,14 @@ ACCOUNTS = [
     "StadiumScience_"
 ]
 
-# Rotate 3 keys for every 3 accounts
+# Read bearer tokens from secrets
 BEARER_KEYS = [
     os.getenv("TWITTER_BEARER_1"),
     os.getenv("TWITTER_BEARER_2"),
     os.getenv("TWITTER_BEARER_3")
 ]
 
+# Prepare headers list (1 per token)
 headers_list = [
     {"Authorization": f"Bearer {token}"} for token in BEARER_KEYS
 ]
@@ -35,13 +39,13 @@ def fetch_latest_tweet(user_id, headers):
     url = f"https://api.twitter.com/2/users/{user_id}/tweets"
     params = {
         "max_results": 10,
-        "tweet.fields": "created_at,referenced_tweets,in_reply_to_user_id",
+        "tweet.fields": "created_at,referenced_tweets,in_reply_to_user_id"
     }
     res = requests.get(url, headers=headers, params=params)
     res.raise_for_status()
     data = res.json().get("data", [])
 
-    # Find first valid tweet (no reply, no retweet)
+    # Filter: not reply, not retweet
     for tweet in data:
         is_reply = tweet.get("in_reply_to_user_id") is not None
         is_retweet = any(ref["type"] == "retweeted" for ref in tweet.get("referenced_tweets", [])) if "referenced_tweets" in tweet else False
@@ -49,7 +53,7 @@ def fetch_latest_tweet(user_id, headers):
             return {
                 "id": tweet["id"],
                 "link": f"https://twitter.com/i/web/status/{tweet['id']}",
-                "date": tweet["created_at"][:10].replace("-", "")  # YYYYMMDD
+                "date": tweet["created_at"][:10].replace("-", "")
             }
     return None
 
@@ -64,25 +68,27 @@ def main():
         if "placeholder" in username:
             continue
 
-        key_index = i // 3  # Use key 0 for 0–2, key 1 for 3–5, etc.
+        key_index = i // 3
         headers = headers_list[key_index]
 
         try:
             user_id = get_user_id(username, headers)
             tweet = fetch_latest_tweet(user_id, headers)
+
             if tweet:
                 tweets.append(tweet)
                 print(f"✅ {username} → tweet_{tweet['id']}")
             else:
-                print(f"⚠️ {username} has no valid tweet")
-        except Exception as e:
-            print(f"❌ Error fetching from {username}: {str(e)}")
+                print(f"⚠️ No valid tweet found for {username}")
 
-    # Save combined JSON
+        except Exception as e:
+            print(f"❌ Error for {username}: {e}")
+
+    # Save all to JSON
     with open(output_path, "w") as f:
         json.dump(tweets, f, indent=2)
-    print(f"📦 Saved {len(tweets)} tweets → {output_path}")
+
+    print(f"\n📦 Fetched {len(tweets)} tweets → {output_path}")
 
 if __name__ == "__main__":
     main()
-
