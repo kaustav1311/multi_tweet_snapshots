@@ -1,32 +1,10 @@
-
-
-
 import os, requests, json
 from datetime import datetime
 
-# List of all accounts (ordered so each 3 go to one token)
-ACCOUNTS = [
-    "Nillioneco",
-    "buildonnillion",
-    "Pindora_HQ",
-    "soar_chain",
-    "HealthBlocks",
-    "SkillfulAI",
-    "FulcraDynamics",
-    "MonadicDNA",
-    "StadiumScience_"
-]
-
-# Read bearer tokens from secrets
-BEARER_KEYS = [
-    os.getenv("TWITTER_BEARER_1"),
-    os.getenv("TWITTER_BEARER_2"),
-    os.getenv("TWITTER_BEARER_3")
-]
-
-# Prepare headers list (1 per token)
-headers_list = [
-    {"Authorization": f"Bearer {token}"} for token in BEARER_KEYS
+ACCOUNT_ASSIGNMENTS = [
+    ("Nillioneco", "TWITTER_BEARER_1"),
+    ("buildonnillion", "TWITTER_BEARER_2"),
+    ("Pindora_HQ", "TWITTER_BEARER_3")
 ]
 
 def get_user_id(username, headers):
@@ -45,7 +23,6 @@ def fetch_latest_tweet(user_id, headers):
     res.raise_for_status()
     data = res.json().get("data", [])
 
-    # Filter: not reply, not retweet
     for tweet in data:
         is_reply = tweet.get("in_reply_to_user_id") is not None
         is_retweet = any(ref["type"] == "retweeted" for ref in tweet.get("referenced_tweets", [])) if "referenced_tweets" in tweet else False
@@ -57,38 +34,44 @@ def fetch_latest_tweet(user_id, headers):
             }
     return None
 
+def read_existing_json(path):
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return []
+
 def main():
     today = datetime.utcnow().strftime("%Y%m%d")
     output_path = f"public/community_feed/twitter_{today}.json"
     os.makedirs("public/community_feed", exist_ok=True)
 
-    tweets = []
+    existing_tweets = read_existing_json(output_path)
+    tweet_ids = {t['id'] for t in existing_tweets}
 
-    for i, username in enumerate(ACCOUNTS):
-        if "placeholder" in username:
-            continue
+    new_tweets = []
 
-        key_index = i // 3
-        headers = headers_list[key_index]
+    for username, token_key in ACCOUNT_ASSIGNMENTS:
+        token = os.getenv(token_key)
+        headers = {"Authorization": f"Bearer {token}"}
 
         try:
             user_id = get_user_id(username, headers)
             tweet = fetch_latest_tweet(user_id, headers)
 
-            if tweet:
-                tweets.append(tweet)
+            if tweet and tweet["id"] not in tweet_ids:
+                new_tweets.append(tweet)
                 print(f"✅ {username} → tweet_{tweet['id']}")
             else:
-                print(f"⚠️ No valid tweet found for {username}")
-
+                print(f"⚠️ No valid tweet found or duplicate for {username}")
         except Exception as e:
             print(f"❌ Error for {username}: {e}")
 
-    # Save all to JSON
+    # Combine & save
+    combined = existing_tweets + new_tweets
     with open(output_path, "w") as f:
-        json.dump(tweets, f, indent=2)
+        json.dump(combined, f, indent=2)
 
-    print(f"\n📦 Fetched {len(tweets)} tweets → {output_path}")
+    print(f"\n📦 Added {len(new_tweets)} new tweets → {output_path}")
 
 if __name__ == "__main__":
     main()
