@@ -7,7 +7,7 @@ ACCOUNT_ASSIGNMENTS = [
     ("Pindora_HQ", "TWITTER_BEARER_3")
 ]
 
-FORCE_OVERWRITE = True  # ✅ Allow adding tweets even if ID exists in JSON
+FORCE_OVERWRITE = True
 
 def get_user_id(username, headers):
     url = f"https://api.twitter.com/2/users/by/username/{username}"
@@ -25,15 +25,26 @@ def fetch_latest_tweet(user_id, headers):
     res.raise_for_status()
     data = res.json().get("data", [])
 
-    for tweet in data:
+    print(f"🔍 Inspecting tweets for user {user_id} ({len(data)} returned):")
+
+    for i, tweet in enumerate(data):
         is_reply = tweet.get("in_reply_to_user_id") is not None
         is_retweet = any(ref["type"] == "retweeted" for ref in tweet.get("referenced_tweets", [])) if "referenced_tweets" in tweet else False
+
+        print(f"\nTweet {i+1}:")
+        print(f"🆔 ID: {tweet['id']}")
+        print(f"📅 Date: {tweet['created_at']}")
+        print(f"📜 Text: {tweet['text']}")
+        print(f"↪️ Is Reply? {'✅' if is_reply else '❌'}")
+        print(f"🔁 Is Retweet? {'✅' if is_retweet else '❌'}")
+
         if not is_reply and not is_retweet:
             return {
                 "id": tweet["id"],
                 "link": f"https://twitter.com/i/web/status/{tweet['id']}",
                 "date": tweet["created_at"][:10].replace("-", "")
             }
+
     return None
 
 def read_existing_json(path):
@@ -63,19 +74,19 @@ def main():
             if tweet:
                 if FORCE_OVERWRITE or tweet["id"] not in tweet_ids:
                     new_tweets.append(tweet)
-                    print(f"✅ {username} → tweet_{tweet['id']}")
+                    print(f"\n✅ {username} → tweet_{tweet['id']}")
                 else:
-                    print(f"🔁 {username} → tweet already present: {tweet['id']}")
+                    print(f"\n🔁 {username} → tweet already present: {tweet['id']}")
             else:
-                print(f"⚠️ No valid tweet found for {username}")
+                print(f"\n⚠️ No valid tweet found for {username}")
         except Exception as e:
-            print(f"❌ Error for {username}: {e}")
+            print(f"\n❌ Error for {username}: {e}")
 
     combined = existing_tweets + new_tweets
     with open(output_path, "w") as f:
         json.dump(combined, f, indent=2)
 
-    print(f"\n📦 Appended {len(new_tweets)} tweets → {output_path}")
+    print(f"\n📦 Appended {len(new_tweets)} new tweets → {output_path}")
 
 if __name__ == "__main__":
     main()
