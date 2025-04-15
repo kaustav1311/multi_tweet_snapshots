@@ -35,9 +35,6 @@ jobs:
       - name: Install Puppeteer
         run: npm install puppeteer@21.3.8
 
-      - name: Install Chrome
-        run: npx puppeteer browsers install chrome
-
 
       - name: Screenshot Tweets
         run: node scripts/screenshot_tweets.js
