@@ -18,7 +18,7 @@ def get_user_id(username, headers):
 def fetch_latest_tweet(user_id, headers):
     url = f"https://api.twitter.com/2/users/{user_id}/tweets"
     params = {
-        "max_results": 2,
+        "max_results": 1,
         "tweet.fields": "created_at,referenced_tweets,in_reply_to_user_id"
     }
     res = requests.get(url, headers=headers, params=params)
