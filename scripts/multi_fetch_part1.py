@@ -7,6 +7,8 @@ ACCOUNT_ASSIGNMENTS = [
     ("Pindora_HQ", "TWITTER_BEARER_3")
 ]
 
+FORCE_OVERWRITE = True  # ✅ Allow adding tweets even if ID exists in JSON
+
 def get_user_id(username, headers):
     url = f"https://api.twitter.com/2/users/by/username/{username}"
     res = requests.get(url, headers=headers)
@@ -58,20 +60,22 @@ def main():
             user_id = get_user_id(username, headers)
             tweet = fetch_latest_tweet(user_id, headers)
 
-            if tweet and tweet["id"] not in tweet_ids:
-                new_tweets.append(tweet)
-                print(f"✅ {username} → tweet_{tweet['id']}")
+            if tweet:
+                if FORCE_OVERWRITE or tweet["id"] not in tweet_ids:
+                    new_tweets.append(tweet)
+                    print(f"✅ {username} → tweet_{tweet['id']}")
+                else:
+                    print(f"🔁 {username} → tweet already present: {tweet['id']}")
             else:
-                print(f"⚠️ No valid tweet found or duplicate for {username}")
+                print(f"⚠️ No valid tweet found for {username}")
         except Exception as e:
             print(f"❌ Error for {username}: {e}")
 
-    # Combine & save
     combined = existing_tweets + new_tweets
     with open(output_path, "w") as f:
         json.dump(combined, f, indent=2)
 
-    print(f"\n📦 Added {len(new_tweets)} new tweets → {output_path}")
+    print(f"\n📦 Appended {len(new_tweets)} tweets → {output_path}")
 
 if __name__ == "__main__":
     main()
