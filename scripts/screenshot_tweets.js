@@ -17,17 +17,34 @@ async function takeTweetScreenshot(tweet, browser) {
   const filePath = path.join(OUTPUT_DIR, `tweet_${id}.png`);
 
   try {
-    const page = await browser.newPage();
+    const context = await browser.createIncognitoBrowserContext();
+    const page = await context.newPage();
+
     await page.setViewport({ width: 800, height: 1000 });
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
-    await page.waitForSelector('article', { timeout: 10000 });
-    const tweetElement = await page.$('article');
 
-    if (!tweetElement) throw new Error('Tweet <article> not found');
+    // Remove modals and overlays
+    await page.evaluate(() => {
+      const selectors = [
+        '[data-testid="sheetDialog"]',
+        '[data-testid="app-bar-close"]',
+        '[role="dialog"]'
+      ];
+      selectors.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.remove();
+      });
+    });
+
+    // Wait for full tweet card
+    await page.waitForSelector('[data-testid="tweet"]', { timeout: 10000 });
+    const tweetElement = await page.$('[data-testid="tweet"]');
+
+    if (!tweetElement) throw new Error('Tweet element not found');
 
     await tweetElement.screenshot({ path: filePath });
     console.log(`✅ Saved: tweet_${id}.png`);
-    await page.close();
+    await context.close();
   } catch (err) {
     console.error(`❌ Error for tweet ${id}: ${err.message}`);
   }
@@ -49,8 +66,7 @@ async function takeTweetScreenshot(tweet, browser) {
 
     await browser.close();
   } catch (err) {
-    console.error('🔥 Script failed:', err.message);
+    console.error('🔥 Screenshot script failed:', err.message);
     process.exit(1);
   }
 })();
-
